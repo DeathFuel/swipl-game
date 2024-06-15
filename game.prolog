@@ -352,12 +352,12 @@ t(N) :- N1 is N + 100, write(N), write(' to '), write(N1), write(' :'), ((betwee
 l :-  % init and cleanup
 	write('\e[H\e[2J'),
 	retractall(attacktimer(_)),			asserta(attacktimer(0)),		% >0 means the player is attacking and cannot move
-	retractall(roomdata(_)), rdc(X),	asserta(roomdata(X)),			% current room string
+	retractall(roomdata(_)), rdc(X),		asserta(roomdata(X)),			% current room string
 	retractall(roompos(_)),				asserta(roompos(17)),			% position of current room in the map
 	retractall(position(_)),			asserta(position(84)),			% position of player in the current room
 	retractall(direction(_)),			asserta(direction(0)),			% 0123<->NWSE
-	retractall(timer(_)),				asserta(timer(0)),				% tickcount mod 40320 = 8!
-	retractall(immunity_frames(_)),		asserta(immunity_frames(0)),
+	retractall(timer(_)),				asserta(timer(0)),			% tickcount mod 40320 = 8!
+	retractall(immunity_frames(_)),			asserta(immunity_frames(0)),
 	retractall(health(_)),				asserta(health(3)),
 	retractall(attackpos(_)),											% sword position
 	retractall(spider(_, _)),											% enemy args (position, time_offset)
@@ -583,10 +583,10 @@ process_enemies :-
 				random_member(NP, [Pos-13, Pos-1, Pos+1, Pos+13]),
 				NewPos is NP,
 				notcolliding(spider, RD, NewPos),	% -  don't walk into walls
-				not(spider(NewPos,_)),				% -  don't trip over each other
-				between(13,130,NewPos),				% |
-				NPM is NewPos mod 13,				% |- don't risk going OOB
-				between(1,11,NPM),					% |
+				not(spider(NewPos,_)),			% -  don't trip over each other
+				between(13,130,NewPos),			% |
+				NPM is NewPos mod 13,			% |- don't risk going OOB
+				between(1,11,NPM),			% |
 				retract(spider(Pos, Offset)),
 				asserta(spider(NewPos, Offset))
 			); (
@@ -607,11 +607,11 @@ process_enemies :-
 				NewPos is NP,
 				roomdata(RD),
 				notcolliding(flying, RD, NewPos),	% -  don't fly into walls, but rocks are fine
-				not(flying(NewPos,_)),				% -  don't collide with each other
-				not(statue(NewPos,_)),				% -  or statues
-				between(13,130,NewPos),				% |
-				NPM is NewPos mod 13,				% |- don't risk going OOB
-				between(1,11,NPM),					% |
+				not(flying(NewPos,_)),			% -  don't collide with each other
+				not(statue(NewPos,_)),			% -  or statues
+				between(13,130,NewPos),			% |
+				NPM is NewPos mod 13,			% |- don't risk going OOB
+				between(1,11,NPM),			% |
 				retract(flying(Pos, Offset)),
 				asserta(flying(NewPos, Offset))
 			); (
@@ -635,8 +635,8 @@ process_enemies :-
 				NewPos is Pos + DX + 13 * DY,
 				roomdata(RD),
 				notcolliding(statue, RD, NewPos),	% -  don't slide through walls
-				not(statue(NewPos,_)),				% -  don't slide into each other
-				not(flying(NewPos,_)),				% -  or into bats, but OOB is fine
+				not(statue(NewPos,_)),			% -  don't slide into each other
+				not(flying(NewPos,_)),			% -  or into bats, but OOB is fine
 				retract(statue(Pos, Offset)),
 				asserta(statue(NewPos, Offset))
 			); (

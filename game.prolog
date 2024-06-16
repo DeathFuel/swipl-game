@@ -350,6 +350,7 @@ t(N) :- N1 is N + 100, write(N), write(' to '), write(N1), write(' :'), ((betwee
 :- dynamic sword_upgraded/0.
 
 l :-  % init and cleanup
+	set_prolog_flag(double_quotes, codes), 							% might improve compatibility
 	write('\e[H\e[2J'),
 	retractall(attacktimer(_)),			asserta(attacktimer(0)),		% >0 means the player is attacking and cannot move
 	retractall(roomdata(_)), rdc(X),		asserta(roomdata(X)),			% current room string
@@ -726,9 +727,6 @@ update_display(Data, C) :-
 	CM is C mod 13,
 	(CM = 0 -> nl; true),
 	(
-		[Tile] = "l" -> (CL = 0 -> name(T,[9619,9619]); name(T,[9608,9608]));
-		[Tile] = "b" -> (CL = 0 -> name(T,[9618,9618]); name(T,[9619,9619]));
-		[Tile] = "d" -> (CL = 0 -> name(T,[9617,9617]); name(T,[9618,9618]));
 		(position(P), P = C, immunity_flash) -> (
 			(
 				direction(D),
@@ -740,6 +738,9 @@ update_display(Data, C) :-
 				)
 			)
 		);
+		[Tile] = "l" -> (CL = 0 -> name(T,[9619,9619]); name(T,[9608,9608]));
+		[Tile] = "b" -> (CL = 0 -> name(T,[9618,9618]); name(T,[9619,9619]));
+		[Tile] = "d" -> (CL = 0 -> name(T,[9617,9617]); name(T,[9618,9618]));
 		(attackpos(AP), AP = C, immunity_flash) -> (
 			direction(D),
 			(

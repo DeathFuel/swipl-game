@@ -1,9 +1,10 @@
 # swipl-game
-A small top-down action adventure game written in SWI-Prolog. Requires version 6.6.6 and support for Unicode characters.
+A small top-down action adventure game written in SWI-Prolog. Requires version 9.x.x and support for Unicode characters.
+Note: some terminal emulators may display the characters improperly. In my testing, Konsole worked best, while Alacritty misplaced or cut off certain wide characters - though YMMV. 
 
 Made for educational purposes; published as part of a gentlemanly agreement.
 ## Running
-Compile with SWI-Prolog 6.6.6 and load the game with the `l/0` predicate:
+Compile with SWI-Prolog 9.x.x and load the game with the `l/0` predicate:
 ```bash
 $ swipl game.prolog
 ```

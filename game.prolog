@@ -350,14 +350,13 @@ t(N) :- N1 is N + 100, write(N), write(' to '), write(N1), write(' :'), ((betwee
 :- dynamic sword_upgraded/0.
 
 l :-  % init and cleanup
-	set_prolog_flag(double_quotes, codes), 							% might improve compatibility
 	write('\e[H\e[2J'),
 	retractall(attacktimer(_)),			asserta(attacktimer(0)),		% >0 means the player is attacking and cannot move
-	retractall(roomdata(_)), rdc(X),		asserta(roomdata(X)),			% current room string
+	retractall(roomdata(_)), rdc(X),	asserta(roomdata(X)),			% current room string
 	retractall(roompos(_)),				asserta(roompos(17)),			% position of current room in the map
 	retractall(position(_)),			asserta(position(84)),			% position of player in the current room
 	retractall(direction(_)),			asserta(direction(0)),			% 0123<->NWSE
-	retractall(timer(_)),				asserta(timer(0)),			% tickcount mod 40320 = 8!
+	retractall(timer(_)),				asserta(timer(0)),				% tickcount mod 40320 = 8!
 	retractall(immunity_frames(_)),			asserta(immunity_frames(0)),
 	retractall(health(_)),				asserta(health(3)),
 	retractall(attackpos(_)),											% sword position
@@ -379,7 +378,7 @@ l :-
 main_loop :-
 	repeat, (
 		update_hud,
-		roomdata(RD),
+		roomdata_c(RD),
 		update_display(RD, 0),
 		nl,
 		catch((call_with_time_limit(0.02, get_single_char(X))), _, true),
@@ -395,14 +394,22 @@ main_loop :-
 
 
 process_input(_) :- attackpos(_), !.
-process_input(X) :- 
-	[X] = "w" -> move(0);
-	[X] = "a" -> move(1);
-	[X] = "s" -> move(2);
-	[X] = "d" -> move(3);
-	[X] = "c" -> attack;
-	true.
+process_input(InputCode) :- 
+	string_chars(X,[InputCode]),
+	(
+		X = "w" -> move(0);
+		X = "a" -> move(1);
+		X = "s" -> move(2);
+		X = "d" -> move(3);
+		X = "c" -> attack;
+		true
+	).
 
+
+% compatibility fix
+roomdata_c(RDC) :-
+	roomdata(RD),
+	string_codes(RD, RDC).
 
 move(Dir) :-
 	retract(direction(_)), asserta(direction(Dir)),
@@ -426,7 +433,7 @@ move(Dir) :-
 	);
 	( % no room switch, move as normal
 		position(P),
-		roomdata(RD),
+		roomdata_c(RD),
 		(
 			Dir = 0 -> M = -13;
 			Dir = 1 -> M = -1;
@@ -455,7 +462,7 @@ attack :-
 attack :-
 	position(Pos),
 	direction(Dir),
-	roomdata(RD),
+	roomdata_c(RD),
 	(
 		Dir = 0 -> M = -13;
 		Dir = 1 -> M = -1;
@@ -503,39 +510,47 @@ switch_room(M) :- % switch to non-cave room
 		retractall(flying(_, _)),
 		retractall(statue(_, _)),
 		retractall(fb(_, _)),
-		process_room(NewRoomData, 0),
+		roomdata_c(RD),
+		process_room(RD, 0),
 		(P1 = 4 -> asserta(fb(35,8)); true),
 		(P1 = 18 -> retract(health(_)), asserta(health(3)); true)
 	).
 
 process_room([], _).
-process_room([H|T], C) :-
-	([H] = "e" -> random_between(0, 23, Offset), asserta(spider(C, Offset)); true),
-	([H] = "f" -> random_between(0, 11, Offset),  asserta(flying(C, Offset)); true),
-	([H] = "S" -> timer(TM), random_between(55, 59, O), Offset is (TM + O) mod 60, asserta(statue(C, Offset)); true),
+process_room([HCode|T], C) :-
+	string_chars(H,[HCode]),
+	(H = "e" -> random_between(0, 23, Offset), asserta(spider(C, Offset)); true),
+	(H = "f" -> random_between(0, 11, Offset),  asserta(flying(C, Offset)); true),
+	(H = "S" -> timer(TM), random_between(55, 59, O), Offset is (TM + O) mod 60, asserta(statue(C, Offset)); true),
 	C1 is C + 1,
 	process_room(T, C1).
 
 
 % the player can trigger special effects which other collision checks shouldn't, hence the first argument
-notcolliding(player, [Tile|_], 0) :-
-	[Tile] = "c", switch_room(c);
-	[Tile] = "k", (not(gate_unlocked), not(has_key) -> (asserta(has_key), fail); true);
-	[Tile] = "s", (not(has_sword) -> (asserta(has_sword), fail); true);
-	[Tile] = "C", (not(has_compass) -> (asserta(has_compass), fail); true);
-	[Tile] = "x", (not(has_mystery) -> (asserta(has_mystery), retract(health(_)), asserta(health(3)), fail); true);
-	[Tile] = "G", (has_key, not(gate_unlocked) -> (asserta(gate_unlocked), retract(has_key), !, fail); fail);
-	[Tile] = "g", gate_unlocked;
-	[Tile] = "G", gate_unlocked;
-	[Tile] = "n", not(fb(_,_));
-	[Tile] = "N", not(fb(_,_)).
-notcolliding(_, [Tile|_], 0) :-
-	[Tile] = "<", direction(1);
-	[Tile] = ">", direction(3);
-	[Tile] = " ";
-	[Tile] = "_";
-	member([Tile], ["e", "f", "S"]);
-	([Tile] = "u"; [Tile] = "v"), (not(sword_upgraded) -> ((not(has_sword) -> asserta(has_sword); true), asserta(sword_upgraded), fail); true).
+notcolliding(player, [TileCode|_], 0) :-
+	string_chars(Tile,[TileCode]),
+	(
+		Tile = "c", switch_room(c);
+		Tile = "k", (not(gate_unlocked), not(has_key) -> (asserta(has_key), fail); true);
+		Tile = "s", (not(has_sword) -> (asserta(has_sword), fail); true);
+		Tile = "C", (not(has_compass) -> (asserta(has_compass), fail); true);
+		Tile = "x", (not(has_mystery) -> (asserta(has_mystery), retract(health(_)), asserta(health(3)), fail); true);
+		Tile = "G", (has_key, not(gate_unlocked) -> (asserta(gate_unlocked), retract(has_key), !, fail); fail);
+		Tile = "g", gate_unlocked;
+		Tile = "G", gate_unlocked;
+		Tile = "n", not(fb(_,_));
+		Tile = "N", not(fb(_,_))
+	).
+notcolliding(_, [TileCode|_], 0) :-
+	string_chars(Tile,[TileCode]),
+	(
+		Tile = "<", direction(1);
+		Tile = ">", direction(3);
+		Tile = " ";
+		Tile = "_";
+		member(Tile, ["e", "f", "S"]);
+		(Tile = "u"; Tile = "v"), (not(sword_upgraded) -> ((not(has_sword) -> asserta(has_sword); true), asserta(sword_upgraded), fail); true)
+	).
 notcolliding(flying, [114|_], 0). % r
 notcolliding(player, _, 0) :- has_mystery.
 notcolliding(Caller, [_|Tail], Pos) :- 
@@ -580,7 +595,7 @@ process_enemies :-
 			); (
 				timer(T),
 				Offset is T mod 48,
-				roomdata(RD),
+				roomdata_c(RD),
 				random_member(NP, [Pos-13, Pos-1, Pos+1, Pos+13]),
 				NewPos is NP,
 				notcolliding(spider, RD, NewPos),	% -  don't walk into walls
@@ -606,7 +621,7 @@ process_enemies :-
 				random_permutation([Pos-13, Pos-1, Pos+1, Pos+13], L),
 				member(NP, L),
 				NewPos is NP,
-				roomdata(RD),
+				roomdata_c(RD),
 				notcolliding(flying, RD, NewPos),	% -  don't fly into walls, but rocks are fine
 				not(flying(NewPos,_)),			% -  don't collide with each other
 				not(statue(NewPos,_)),			% -  or statues
@@ -634,7 +649,7 @@ process_enemies :-
 				(DX is sign(PX - SX); DX is 0),
 				(DY is sign(PY - SY); DY is 0),
 				NewPos is Pos + DX + 13 * DY,
-				roomdata(RD),
+				roomdata_c(RD),
 				notcolliding(statue, RD, NewPos),	% -  don't slide through walls
 				not(statue(NewPos,_)),			% -  don't slide into each other
 				not(flying(NewPos,_)),			% -  or into bats, but OOB is fine
@@ -721,7 +736,8 @@ update_hud :-
 
 update_display([], _).
 update_display(Data, C) :-
-	Data = [Tile|DT],
+	Data = [TileCode|DT],
+	string_chars(Tile,[TileCode]),
 	roompos(RP),
 	(player_in_cave -> CL is (C+RP+1) mod 2; CL is (C+RP) mod 2),
 	CM is C mod 13,
@@ -738,9 +754,9 @@ update_display(Data, C) :-
 				)
 			)
 		);
-		[Tile] = "l" -> (CL = 0 -> name(T,[9619,9619]); name(T,[9608,9608]));
-		[Tile] = "b" -> (CL = 0 -> name(T,[9618,9618]); name(T,[9619,9619]));
-		[Tile] = "d" -> (CL = 0 -> name(T,[9617,9617]); name(T,[9618,9618]));
+		Tile = "l" -> (CL = 0 -> name(T,[9619,9619]); name(T,[9608,9608]));
+		Tile = "b" -> (CL = 0 -> name(T,[9618,9618]); name(T,[9619,9619]));
+		Tile = "d" -> (CL = 0 -> name(T,[9617,9617]); name(T,[9618,9618]));
 		(attackpos(AP), AP = C, immunity_flash) -> (
 			direction(D),
 			(
@@ -779,31 +795,31 @@ update_display(Data, C) :-
 			timer(TM), TMod is ((Offset+TM) div 12) mod 2,
 			(TMod = 0 -> name(T,[10923,10922]); name(T,[8715,8712]))
 		);
-		(member([Tile],[" ", "_", "e", "f", "S"])) -> write('  ');
-		[Tile] = "r" -> (L is round(sqrt(6007 * RP + 6037 * C)) mod 5 + 129857, R is round(1 + sqrt(6011 * RP + 6029 * C)) mod 5 + 129868, name(T,[L,R]));
-		[Tile] = "y" -> (random_between(129857,129862,L), random_between(129868,129873,R), name(T,[L,R]));
-		[Tile] = "n" -> (not(fb(_,_)) -> write('  '); name(T,[129803,129803]));
-		[Tile] = "N" -> (not(fb(_,_)) -> write('  '); name(T,[129844,129848]));
-		[Tile] = "g" -> (gate_unlocked -> write('  '); name(T,[129803,129803]));
-		[Tile] = "G" -> (gate_unlocked -> write('  '); name(T,[129844,129848]));
-		[Tile] = "C" -> (has_compass -> write('  '); name(T,[9202,32]));
-		[Tile] = "k" -> ((has_key; gate_unlocked) -> write('  '); name(T,[9711,5763]));
-		[Tile] = "x" -> (has_mystery -> write('  '); name(T,[9004,5764]));
-		[Tile] = "s" -> (has_sword -> write('  '); name(T,[45,10238]));
-		[Tile] = "u" -> (sword_upgraded -> write('  '); name(T,[8212, 8212]));
-		[Tile] = "v" -> (sword_upgraded -> write('  '); name(T,[10238, 32]));
-		[Tile] = "p" -> (name(T,[129859,129870]));
-		[Tile] = "c" -> (name(T,[129883,129894]));
-		[Tile] = "<" -> (name(T,[129956,129956]));
-		[Tile] = ">" -> (name(T,[129957,129957]));
-		[Tile] = "B" -> (name(T,[9004,9187]));
-		[Tile] = "F" -> (name(T,[40,8976,9632,95,9632,41]));
-		[Tile] = "T" -> (write('It\'s dangerous'));
-		[Tile] = "U" -> (write(' to go alone, '));
-		[Tile] = "V" -> (write('take this!'));
-		[Tile] = "X" -> (write(' THE POWER OF '));
-		[Tile] = "Y" -> (write('DEATH FUEL'));
-		[Tile] = "Z" -> (write('HEALS YOU!'));
+		(member(Tile,[" ", "_", "e", "f", "S"])) -> write('  ');
+		Tile = "r" -> (L is round(sqrt(6007 * RP + 6037 * C)) mod 5 + 129857, R is round(1 + sqrt(6011 * RP + 6029 * C)) mod 5 + 129868, name(T,[L,R]));
+		Tile = "y" -> (random_between(129857,129862,L), random_between(129868,129873,R), name(T,[L,R]));
+		Tile = "n" -> (not(fb(_,_)) -> write('  '); name(T,[129803,129803]));
+		Tile = "N" -> (not(fb(_,_)) -> write('  '); name(T,[129844,129848]));
+		Tile = "g" -> (gate_unlocked -> write('  '); name(T,[129803,129803]));
+		Tile = "G" -> (gate_unlocked -> write('  '); name(T,[129844,129848]));
+		Tile = "C" -> (has_compass -> write('  '); name(T,[9202,32]));
+		Tile = "k" -> ((has_key; gate_unlocked) -> write('  '); name(T,[9711,5763]));
+		Tile = "x" -> (has_mystery -> write('  '); name(T,[9004,5764]));
+		Tile = "s" -> (has_sword -> write('  '); name(T,[45,10238]));
+		Tile = "u" -> (sword_upgraded -> write('  '); name(T,[8212, 8212]));
+		Tile = "v" -> (sword_upgraded -> write('  '); name(T,[10238, 32]));
+		Tile = "p" -> (name(T,[129859,129870]));
+		Tile = "c" -> (name(T,[129883,129894]));
+		Tile = "<" -> (name(T,[129956,129956]));
+		Tile = ">" -> (name(T,[129957,129957]));
+		Tile = "B" -> (name(T,[9004,9187]));
+		Tile = "F" -> (name(T,[40,8976,9632,95,9632,41]));
+		Tile = "T" -> (write('It\'s dangerous'));
+		Tile = "U" -> (write(' to go alone, '));
+		Tile = "V" -> (write('take this!'));
+		Tile = "X" -> (write(' THE POWER OF '));
+		Tile = "Y" -> (write('DEATH FUEL'));
+		Tile = "Z" -> (write('HEALS YOU!'));
 		true
 	),
 	(nonvar(T) -> write(T); true),

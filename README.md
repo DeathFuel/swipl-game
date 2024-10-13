@@ -4,7 +4,7 @@ Note: some terminal emulators may display the characters improperly. In my testi
 
 Made for educational purposes; published as part of a gentlemanly agreement.
 ## Running
-Compile with SWI-Prolog 9.x.x and load the game with the `l/0` predicate:
+Run with SWI-Prolog 9.x.x and load the game with the `l/0` predicate:
 ```bash
 $ swipl game.prolog
 ```

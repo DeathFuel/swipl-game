@@ -401,7 +401,7 @@ process_input(InputCode) :-
 		X = "a" -> move(1);
 		X = "s" -> move(2);
 		X = "d" -> move(3);
-		X = "c" -> attack;
+		member(X, ["z", "x", "c"]) -> attack;
 		true
 	).
 
